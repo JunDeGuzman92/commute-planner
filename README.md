@@ -149,13 +149,25 @@ Open http://localhost:3000
 
 ## Data Sources
 
-- [Durham Region Transit GTFS](https://maps.durham.ca/OpenDataGTFS/GTFS_Durham_TXT.zip)
-- [GO Transit GTFS](https://www.gotransit.com/en/partner-with-us/software-developers) (Metrolinx Open Data)
-- [GTFS-RT Vehicle Positions](https://drtonline.durhamregiontransit.com/gtfsrealtime/VehiclePositions)
-- [GTFS-RT Trip Updates](https://drtonline.durhamregiontransit.com/gtfsrealtime/TripUpdates)
-- [GTFS-RT Service Alerts](https://maps.durham.ca/OpenDataGTFS/alerts.pb)
+Live and open data feeds used by the app:
+
+- [Durham Region Transit GTFS](https://maps.durham.ca/OpenDataGTFS/GTFS_Durham_TXT.zip) — bus schedules, stops, shapes
+- [GO Transit GTFS](https://www.gotransit.com/en/partner-with-us/software-developers) — train/bus schedules (Metrolinx Open Data)
+- [GTFS-RT Vehicle Positions](https://drtonline.durhamregiontransit.com/gtfsrealtime/VehiclePositions) — live bus locations
+- [GTFS-RT Trip Updates](https://drtonline.durhamregiontransit.com/gtfsrealtime/TripUpdates) — live delay predictions
+- [GTFS-RT Service Alerts](https://maps.durham.ca/OpenDataGTFS/alerts.pb) — detours and disruptions
 - [OSRM Demo Server](https://router.project-osrm.org) — driving/cycling/walking routes
-- [Open-Meteo](https://open-meteo.com) — weather for scenario analysis
+- [Open-Meteo](https://open-meteo.com) — current weather and 7-day forecast (no API key needed)
+
+Fare and rate references (used to build the cost models — these are
+published prices, not live feeds):
+
+- [DRT fares](https://www.durhamregiontransit.com/fares-passes/fares/) — PRESTO, cash, monthly pass rates
+- [GO Transit fares](https://www.gotransit.com/en/ways-to-pay/fare-information) — distance-based PRESTO pricing
+- [VIA Rail](https://www.viarail.ca), [Megabus](https://ca.megabus.com), [FlixBus](https://www.flixbus.ca), [Poparide](https://www.poparide.com) — intercity fare references
+
+Uber and taxi costs are local rate estimates, not live quotes. Intercity
+times are scheduled estimates, not real-time.
 
 ## Attribution
 
