@@ -1,12 +1,37 @@
+# Python
 __pycache__/
 *.pyc
 .venv/
+*.egg-info/
+dist/
+build/
+
+# Node
 node_modules/
 .next/
-*.zip
-data/*.txt
+out/
+*.log
+
+# Data
+data/*.zip
 data/gtfs/
-*.db
+data/*.db
+*.pb
+
+# Environment
 .env
 .env.local
+*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
 Dockerfile.dockerignore
