@@ -299,6 +299,7 @@ class BudgetRequest(PlanRequest):
     savings_balance: float = 0.0
     food_insecure: bool = False
     profile: str = "balanced"
+    co2_cap_kg: float = 0.0  # optional monthly CO2 ceiling
 
 
 @app.post("/budget")
@@ -322,6 +323,8 @@ def budget(req: BudgetRequest):
         trips_per_week=req.trips_per_week,
         chosen_mode=chosen.mode if chosen else "transit",
         cost_per_trip=chosen.cost if chosen else 0.0,
+        co2_cap_kg=req.co2_cap_kg,
+        co2_per_trip=chosen.co2_kg if chosen else 0.0,
     )
 
     comparison = compare_all_vs_budget(state, mode_dicts)
@@ -342,6 +345,8 @@ def budget(req: BudgetRequest):
             "monthly_spend": round(state.monthly_spend, 2),
             "surplus": round(state.surplus, 2),
             "trips_per_month": round(state.trips_per_month),
+            "monthly_co2": round(state.monthly_co2, 2),
+            "co2_cap_kg": state.co2_cap_kg,
         },
     }
 
@@ -555,3 +560,40 @@ def vehicles():
 @app.get("/alerts")
 def alerts():
     return rt_store.alerts()
+
+
+@app.get("/disruptions")
+def disruptions(routes: str = Query("", description="Comma-separated route names to watch"),
+                threshold_min: int = 5):
+    """Flag watched routes currently running late.
+
+    The frontend passes the routes it's displaying (e.g. '301,917,LE');
+    we match against live trip delays and return only the problem ones.
+    """
+    watched = {r.strip().upper() for r in routes.split(",") if r.strip()}
+    if not watched:
+        return {"disruptions": []}
+
+    delays = rt_store.current_delays()
+    threshold_s = threshold_min * 60
+    problems = []
+    for trip_id, delay_s in delays.items():
+        if delay_s < threshold_s:
+            continue
+        route_id = router.trip_route.get(trip_id, "")
+        route_name = router.route_names.get(route_id, route_id).upper()
+        if route_name in watched or any(
+            route_name.startswith(w) for w in watched
+        ):
+            problems.append({
+                "trip_id": trip_id,
+                "route": route_name,
+                "delay_min": round(delay_s / 60),
+                "headsign": router.trip_headsign.get(trip_id, ""),
+            })
+    problems.sort(key=lambda p: -p["delay_min"])
+    return {
+        "disruptions": problems,
+        "network_delay_risk": round(_delay_risk(), 2),
+        "alert_texts": rt_store.alerts(),
+    }

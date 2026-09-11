@@ -12,6 +12,8 @@ import BudgetPanel from "../components/BudgetPanel";
 import IntercityModes from "../components/IntercityModes";
 import InsightsPanel from "../components/InsightsPanel";
 import ChatPanel from "../components/ChatPanel";
+import { DisruptionBanner, LeaveNowButton } from "../components/TripTools";
+import { useTripHistory } from "../lib/useTripHistory";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
@@ -34,6 +36,7 @@ export default function HomePage() {
   const [compareLoading, setCompareLoading] = useState(false);
   const [planParams, setPlanParams] = useState(null);
   const [activeTab, setActiveTab] = useState("trip");
+  const { record, frequentTrips } = useTripHistory();
 
   useEffect(() => {
     // React 19 strict mode: effects run mount → cleanup → mount.
@@ -239,6 +242,13 @@ export default function HomePage() {
       if (data.length > 0) {
         setSelectedRoute(0);
         drawRoute(data[0]);
+        // Record the trip for pattern learning (quick-fill chips)
+        record(
+          { lat: planData.from_lat, lon: planData.from_lon },
+          { lat: planData.to_lat, lon: planData.to_lon },
+          planData.depart_at,
+          data[0] ? ["transit"] : null
+        );
       }
     } catch (e) {
       console.error("Plan failed:", e);
@@ -355,6 +365,29 @@ export default function HomePage() {
         <aside className="w-96 bg-gray-50 border-r flex flex-col overflow-hidden">
           {/* Trip form always visible at top */}
           <div className="p-4 pb-2 border-b bg-white">
+            {frequentTrips.length > 0 && !origin && (
+              <div className="mb-2">
+                <div className="text-[10px] text-gray-400 mb-1">
+                  Recent trips:
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {frequentTrips.map((t, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setOrigin({ lat: t.origin.lat, lon: t.origin.lon });
+                        setDestination({ lat: t.destination.lat, lon: t.destination.lon });
+                      }}
+                      className="text-[10px] bg-gray-100 hover:bg-gray-200 rounded-full px-2 py-1 text-gray-600"
+                    >
+                      📍 {t.origin.lat.toFixed(3)},{t.origin.lon.toFixed(3)} →{" "}
+                      {t.destination.lat.toFixed(3)},{t.destination.lon.toFixed(3)}
+                      {t.count > 1 && ` (×${t.count})`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <RouteForm
               origin={origin}
               destination={destination}
@@ -397,6 +430,12 @@ export default function HomePage() {
           <div className="flex-1 overflow-y-auto p-4">
             {activeTab === "trip" && (
               <div className="space-y-4">
+                {routes.length > 0 && <DisruptionBanner routes={routes} />}
+
+                {routes.length > 0 && selectedRoute !== null && routes[selectedRoute] && (
+                  <LeaveNowButton route={routes[selectedRoute]} />
+                )}
+
                 {routes.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -465,6 +504,16 @@ export default function HomePage() {
             {activeTab === "ask" && (
               <ChatPanel planParams={planParams} />
             )}
+          </div>
+
+          {/* Attribution required by Metrolinx Access and Use Agreement */}
+          <div className="text-[9px] text-gray-400 px-3 py-2 border-t leading-tight">
+            Data used in this product or service is provided with the
+            permission of Metrolinx. Metrolinx makes no representations or
+            warranties of any kind, express or implied, with respect to the
+            Data and assumes no responsibility for the accuracy or currency
+            of the data used in this product or service. DRT data via the
+            Region of Durham open data portal.
           </div>
         </aside>
 

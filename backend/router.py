@@ -119,6 +119,8 @@ class TransitRouter:
         self.trip_shape: dict[str, str] = {}  # trip_id -> shape_id
         self.shapes: dict[str, list[tuple[float, float]]] = {}  # shape_id -> [(lat, lon), ...]
         self.route_names: dict[str, str] = {}
+        # Cross-agency walk transfers: stop_id -> [(neighbor_id, walk_m)]
+        self.transfer_edges: dict[str, list[tuple[str, float]]] = {}
         self._load_static()
 
     # ---------- loading ----------
@@ -172,6 +174,18 @@ class TransitRouter:
             self.trip_stop_sequence = {
                 t: [s for _, s in sorted(v)] for t, v in seq.items()
             }
+
+            # Cross-agency walk-transfer edges (built by go_loader.py).
+            # Table may not exist before the first GO merge — that's fine.
+            try:
+                for r in conn.execute(
+                    "SELECT from_stop, to_stop, walk_m FROM transfer_edges"
+                ):
+                    self.transfer_edges.setdefault(r["from_stop"], []).append(
+                        (r["to_stop"], r["walk_m"])
+                    )
+            except sqlite3.OperationalError:
+                pass
         finally:
             conn.close()
 
@@ -393,6 +407,48 @@ class TransitRouter:
                 new_riding.append(cand)
                 if not self._pareto_insert(labels.setdefault(conn.to_stop, []), cand):
                     pass
+
+                # Propagate across cross-agency walk-transfer edges
+                # (e.g. DRT stop -> GO station 150 m away). This is how
+                # DRT->GO journeys form without polluting the scan with
+                # synthetic connections.
+                for neighbor, edge_walk_m in self.transfer_edges.get(
+                    conn.to_stop, []
+                ):
+                    walk_s = int(edge_walk_m / WALK_SPEED_MPS)
+                    transfer_label = Label(
+                        arrival=cand.arrival + walk_s,
+                        transfers=cand.transfers,
+                        walk_m=cand.walk_m + edge_walk_m,
+                        stop_id=neighbor,
+                        legs=cand.legs,
+                        open_trip=cand.open_trip,
+                        open_route=cand.open_route,
+                        open_board_stop=cand.open_board_stop,
+                        open_board_time=cand.open_board_time,
+                        open_stops_ridden=cand.open_stops_ridden,
+                    )
+                    self._pareto_insert(
+                        labels.setdefault(neighbor, []), transfer_label
+                    )
+                    if neighbor in dest_walk:
+                        final_walk = dest_walk[neighbor]
+                        final = Label(
+                            arrival=transfer_label.arrival
+                                    + int(final_walk / WALK_SPEED_MPS),
+                            transfers=transfer_label.transfers,
+                            walk_m=transfer_label.walk_m + final_walk,
+                            stop_id=neighbor,
+                            legs=transfer_label.legs,
+                            open_trip=transfer_label.open_trip,
+                            open_route=transfer_label.open_route,
+                            open_board_stop=transfer_label.open_board_stop,
+                            open_board_time=transfer_label.open_board_time,
+                            open_stops_ridden=transfer_label.open_stops_ridden,
+                        )
+                        self._pareto_insert(best_final, final)
+                        if final.arrival < earliest_final:
+                            earliest_final = final.arrival
 
                 if conn.to_stop in dest_walk:
                     final_walk = dest_walk[conn.to_stop]

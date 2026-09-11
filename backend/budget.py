@@ -27,6 +27,8 @@ class BudgetState:
     trips_per_week: int
     chosen_mode: str
     cost_per_trip: float
+    co2_cap_kg: float = 0.0        # optional monthly CO2 ceiling (0 = off)
+    co2_per_trip: float = 0.0      # kg for the chosen mode
 
     @property
     def trips_per_month(self) -> float:
@@ -44,6 +46,16 @@ class BudgetState:
     def surplus(self) -> float:
         return self.monthly_budget - self.monthly_spend
 
+    @property
+    def monthly_co2(self) -> float:
+        return self.trips_per_month * self.co2_per_trip
+
+    @property
+    def co2_remaining(self) -> float:
+        if self.co2_cap_kg <= 0:
+            return float("inf")
+        return self.co2_cap_kg - self.monthly_co2
+
 
 @dataclass
 class Advice:
@@ -58,6 +70,7 @@ def advise_surplus(state: BudgetState, savings_balance: float = 0.0,
     """Where should leftover transport budget go?
 
     Priority order (evidence-based):
+      0. CO2 cap breach (if set) — behavior change before money moves
       1. Food security if flagged
       2. Emergency fund if savings < 4 weeks of budget
       3. PRESTO reload buffer (avoids overdraft lockouts — see March 2026 rule)
@@ -65,6 +78,30 @@ def advise_surplus(state: BudgetState, savings_balance: float = 0.0,
       5. Discretionary (occasional Uber for late nights, etc.)
     """
     surplus = state.surplus
+
+    # CO2 cap breached — this overrides money advice
+    if state.co2_cap_kg > 0 and state.monthly_co2 > state.co2_cap_kg:
+        over = state.monthly_co2 - state.co2_cap_kg
+        advice = Advice(
+            headline=f"Carbon budget exceeded by {over:.1f} kg CO2/month"
+        )
+        advice.reasoning.append(
+            f"Your {state.chosen_mode} commute emits {state.monthly_co2:.1f} kg "
+            f"vs your {state.co2_cap_kg} kg cap")
+        if state.chosen_mode in ("drive", "uber", "taxi"):
+            advice.actions.append(
+                "Switch 2-3 days/week to transit or cycling to get back "
+                "under your cap")
+            advice.actions.append(
+                "Poparide carpooling halves your per-person emissions on "
+                "days you must drive")
+        else:
+            advice.actions.append(
+                "Even transit has a footprint — cycling or walking short "
+                "trips is zero-emission")
+        advice.suggested_allocation = {}
+        return advice
+
     if surplus <= 0:
         return advise_deficit(state)
 
@@ -176,15 +213,20 @@ def compare_all_vs_budget(state: BudgetState, all_modes: list[dict]) -> dict:
     rows = []
     for m in all_modes:
         monthly = m["cost"] * state.trips_per_month
+        co2_monthly = m.get("co2_kg", 0) * state.trips_per_month
         rows.append({
             **m,
             "monthly_cost": round(monthly, 2),
+            "monthly_co2": round(co2_monthly, 2),
             "within_budget": monthly <= state.monthly_budget,
+            "within_co2_cap": (state.co2_cap_kg <= 0
+                               or co2_monthly <= state.co2_cap_kg),
             "budget_delta": round(state.monthly_budget - monthly, 2),
         })
     rows.sort(key=lambda r: r["monthly_cost"])
     return {
         "monthly_budget": state.monthly_budget,
+        "co2_cap_kg": state.co2_cap_kg,
         "trips_per_month": round(state.trips_per_month),
         "modes": rows,
         "cheapest_within_budget": next(

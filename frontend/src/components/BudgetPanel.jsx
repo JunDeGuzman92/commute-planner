@@ -7,6 +7,7 @@ export default function BudgetPanel({ planParams }) {
   const [budget, setBudget] = useState(200);
   const [trips, setTrips] = useState(10);
   const [savings, setSavings] = useState(0);
+  const [co2Cap, setCo2Cap] = useState(0);
   const [foodInsecure, setFoodInsecure] = useState(false);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,7 @@ export default function BudgetPanel({ planParams }) {
           trips_per_week: parseInt(trips),
           savings_balance: parseFloat(savings),
           food_insecure: foodInsecure,
+          co2_cap_kg: parseFloat(co2Cap) || 0,
         }),
       });
       if (!res.ok) throw new Error(`${res.status}`);
@@ -70,6 +72,15 @@ export default function BudgetPanel({ planParams }) {
             className="border rounded px-2 py-1"
           />
         </label>
+        <label className="flex flex-col">
+          <span className="text-gray-600">CO2 cap (kg/mo, 0=off)</span>
+          <input
+            type="number"
+            value={co2Cap}
+            onChange={(e) => setCo2Cap(e.target.value)}
+            className="border rounded px-2 py-1"
+          />
+        </label>
         <label className="flex items-end gap-1 pb-1">
           <input
             type="checkbox"
@@ -99,6 +110,35 @@ export default function BudgetPanel({ planParams }) {
               {result.budget_state.monthly_budget} (
               {result.budget_state.trips_per_month} trips)
             </div>
+            {result.budget_state.co2_cap_kg > 0 && (
+              <div className="mt-1.5">
+                <div className="flex justify-between text-[10px] text-gray-500">
+                  <span>Carbon budget</span>
+                  <span>
+                    {result.budget_state.monthly_co2} /{" "}
+                    {result.budget_state.co2_cap_kg} kg CO2
+                  </span>
+                </div>
+                <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-0.5">
+                  <div
+                    className={`h-full rounded-full ${
+                      result.budget_state.monthly_co2 >
+                      result.budget_state.co2_cap_kg
+                        ? "bg-red-500"
+                        : "bg-emerald-500"
+                    }`}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (result.budget_state.monthly_co2 /
+                          result.budget_state.co2_cap_kg) *
+                          100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

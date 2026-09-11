@@ -16,4 +16,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8080
 
 # Download GTFS on first run, then start server
-CMD cd /app/backend && python gtfs_loader.py && python -m uvicorn api:app --host 0.0.0.0 --port ${PORT:-8080}
+CMD cd /app/backend && python gtfs_loader.py && python go_loader.py && python -m uvicorn api:app --host 0.0.0.0 --port ${PORT:-8080}

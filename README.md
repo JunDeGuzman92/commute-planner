@@ -4,6 +4,7 @@ A multi-modal trip planning application for Durham Region Transit (DRT) with rea
 
 ## Features
 
+- **Cross-agency routing**: DRT + GO Transit in one unified connection graph — real Lakeshore East train schedules, walk-transfer edges between bus stops and GO stations
 - **Multi-criteria routing**: Pareto-optimal route options (fastest, fewest transfers, least walking)
 - **Multimodal comparison**: DRT bus vs drive vs cycle vs walk vs Uber vs taxi — time, cost, CO2, calories
 - **Long-distance options**: GO Train, VIA Rail, Megabus, FlixBus, Poparide carpool
@@ -13,11 +14,13 @@ A multi-modal trip planning application for Durham Region Transit (DRT) with rea
   - Optimal departure windows (±2hr scan with cliff detection)
   - Weekly mode-mix optimizer (cycle dry days, transit wet days)
 - **Conversational planner**: Natural-language interface that routes questions to the right engine — cost, timing, reliability, budget, intercity, weather
-- **Budget engine**: Monthly transport budget tracking, per-mode cost projection, within/over budget flags
+- **Budget engine**: Monthly money + carbon (CO2) budget tracking with advisor
 - **AI surplus advisor**: Rule-based recommendations for leftover budget (food → emergency savings → PRESTO buffer → pass upgrade)
 - **What-if scenarios**: Missed bus recovery, leave-later curve, weather impact, monthly pass break-even
 - **7-day weather outlook**: Open-Meteo forecast integrated into weekly planning
-- **Decision support**: Explainable recommendations with badges (Fastest, Cheapest, Lowest CO2, Most active)
+- **Trip history learning**: Local pattern detection, quick-fill chips for frequent trips
+- **Leave-now notifications**: Browser reminders timed to your first bus
+- **Live disruption banner**: Watched routes flagged when trips run 5+ min late
 - **Real-time updates**: Live bus positions and delay predictions via GTFS-RT
 - **Interactive map**: Click to set origin/destination, view route geometry, see live bus locations
 
@@ -81,9 +84,10 @@ Open http://localhost:3000
 | POST | `/compare` | All local modes scored and compared |
 | POST | `/whatif` | Scenario analysis |
 | POST | `/intercity` | GO/VIA/Megabus/FlixBus/Poparide options |
-| POST | `/budget` | Budget analysis + AI surplus advisor |
+| POST | `/budget` | Budget analysis + AI surplus advisor (money + CO2) |
 | POST | `/insights` | Time-value, fragility, departure windows, weekly plan |
 | POST | `/chat` | Conversational planner (natural language → engines) |
+| GET | `/disruptions` | Watched routes currently running late |
 | GET | `/vehicles` | Live bus positions |
 | GET | `/alerts` | Active service alerts |
 
@@ -144,11 +148,16 @@ Open http://localhost:3000
 ## Data Sources
 
 - [Durham Region Transit GTFS](https://maps.durham.ca/OpenDataGTFS/GTFS_Durham_TXT.zip)
+- [GO Transit GTFS](https://www.gotransit.com/en/partner-with-us/software-developers) (Metrolinx Open Data)
 - [GTFS-RT Vehicle Positions](https://drtonline.durhamregiontransit.com/gtfsrealtime/VehiclePositions)
 - [GTFS-RT Trip Updates](https://drtonline.durhamregiontransit.com/gtfsrealtime/TripUpdates)
 - [GTFS-RT Service Alerts](https://maps.durham.ca/OpenDataGTFS/alerts.pb)
 - [OSRM Demo Server](https://router.project-osrm.org) — driving/cycling/walking routes
 - [Open-Meteo](https://open-meteo.com) — weather for scenario analysis
+
+## Attribution
+
+Data used in this product or service is provided with the permission of Metrolinx. Metrolinx makes no representations or warranties of any kind, express or implied, with respect to the Data and assumes no responsibility for the accuracy or currency of the data used in this product or service.
 
 ## License
 
