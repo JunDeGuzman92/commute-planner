@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.next/
+*.zip
+data/*.txt
+data/gtfs/
+*.db
+.env
+.env.local
+Dockerfile.dockerignore
