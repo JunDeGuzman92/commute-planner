@@ -75,6 +75,11 @@ class RealtimeStore:
         with self._lock:
             return self._trip_delays.get(trip_id, 0)
 
+    def current_delays(self) -> dict:
+        """Snapshot of {trip_id: delay_seconds} for delay-risk scoring."""
+        with self._lock:
+            return dict(self._trip_delays)
+
     def vehicles(self) -> list[VehicleInfo]:
         with self._lock:
             return list(self._vehicles)

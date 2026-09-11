@@ -4,20 +4,27 @@ Endpoints:
   GET  /health       - service + feed status
   GET  /stops        - stop search by name (for the frontend autocomplete)
   POST /plan         - Pareto-optimal routes between two coordinates
+  POST /compare      - all modes (transit/drive/cycle/walk/uber/taxi) scored
+  POST /whatif       - scenario analysis (missed bus, leave later, weather, pass)
   GET  /vehicles     - live bus positions (for map display)
   GET  /alerts       - active service alerts
 """
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from datetime import date, datetime
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from modes import compare_modes
+from recommend import recommend, monthly_breakeven
 from realtime import RealtimePoller, RealtimeStore
 from router import TransitRouter, format_gtfs_time
+from whatif import (get_weather, weather_scenario, missed_bus_scenario,
+                    leave_later_curve)
 
 rt_store = RealtimeStore()
 poller = RealtimePoller(rt_store)
@@ -104,8 +111,43 @@ def search_stops(q: str = Query(..., min_length=2), limit: int = 10):
     return matches[:limit]
 
 
-@app.post("/plan", response_model=list[RouteOut])
-def plan(req: PlanRequest):
+def _serialize_routes(options) -> list[dict]:
+    """Route objects -> plain dicts used by /plan, /compare, /whatif."""
+    return [
+        {
+            "depart": format_gtfs_time(o.depart),
+            "arrive": format_gtfs_time(o.arrive),
+            "duration_min": o.duration_s // 60,
+            "transfers": o.transfers,
+            "walk_m": round(o.walk_m),
+            "legs": [
+                {
+                    "mode": leg.mode,
+                    "from_name": leg.from_name,
+                    "to_name": leg.to_name,
+                    "depart": format_gtfs_time(leg.depart),
+                    "arrive": format_gtfs_time(leg.arrive),
+                    "route_name": leg.route_name,
+                    "headsign": leg.headsign,
+                    "num_stops": leg.num_stops,
+                    "distance_m": round(leg.distance_m),
+                    "geometry": router.get_leg_geometry(
+                        leg.trip_id, leg.from_stop, leg.to_stop
+                    ) if leg.mode == "transit" and leg.trip_id else None,
+                    "from_lat": router.stop_coords.get(leg.from_stop, (None, None))[0],
+                    "from_lon": router.stop_coords.get(leg.from_stop, (None, None))[1],
+                    "to_lat": router.stop_coords.get(leg.to_stop, (None, None))[0],
+                    "to_lon": router.stop_coords.get(leg.to_stop, (None, None))[1],
+                }
+                for leg in o.legs
+            ],
+        }
+        for o in options
+    ]
+
+
+def _run_transit_query(req: PlanRequest):
+    """Shared transit routing used by /plan, /compare, /whatif."""
     today = date.today()
     if req.depart_at:
         h, m = req.depart_at.split(":")
@@ -124,37 +166,109 @@ def plan(req: PlanRequest):
         rt_store=rt_store if req.use_realtime else None,
         service_date=today if req.use_realtime else None,
     )
-    return [
-        RouteOut(
-            depart=format_gtfs_time(o.depart),
-            arrive=format_gtfs_time(o.arrive),
-            duration_min=o.duration_s // 60,
-            transfers=o.transfers,
-            walk_m=round(o.walk_m),
-            legs=[
-                LegOut(
-                    mode=leg.mode,
-                    from_name=leg.from_name,
-                    to_name=leg.to_name,
-                    depart=format_gtfs_time(leg.depart),
-                    arrive=format_gtfs_time(leg.arrive),
-                    route_name=leg.route_name,
-                    headsign=leg.headsign,
-                    num_stops=leg.num_stops,
-                    distance_m=round(leg.distance_m),
-                    geometry=router.get_leg_geometry(
-                        leg.trip_id, leg.from_stop, leg.to_stop
-                    ) if leg.mode == "transit" and leg.trip_id else None,
-                    from_lat=router.stop_coords.get(leg.from_stop, (None, None))[0],
-                    from_lon=router.stop_coords.get(leg.from_stop, (None, None))[1],
-                    to_lat=router.stop_coords.get(leg.to_stop, (None, None))[0],
-                    to_lon=router.stop_coords.get(leg.to_stop, (None, None))[1],
-                )
-                for leg in o.legs
-            ],
+    return _serialize_routes(options), depart
+
+
+def _delay_risk() -> float:
+    """Fraction of currently tracked trips running >5 min late."""
+    delays = rt_store.current_delays()
+    if not delays:
+        return 0.0
+    late = sum(1 for d in delays.values() if d > 300)
+    return late / len(delays)
+
+
+class CompareRequest(PlanRequest):
+    profile: str = "balanced"  # balanced|cheapest|fastest|greenest|healthiest
+
+
+class WhatIfRequest(PlanRequest):
+    scenario: str  # missed_bus | leave_later | weather | monthly_pass
+    trips_per_week: int = 10  # for monthly_pass
+
+
+@app.post("/plan", response_model=list[RouteOut])
+def plan(req: PlanRequest):
+    routes, _ = _run_transit_query(req)
+    return routes
+
+
+@app.post("/compare")
+def compare(req: CompareRequest):
+    """Cost every mode side-by-side with a recommendation."""
+    routes, _ = _run_transit_query(req)
+    options = compare_modes(req.from_lat, req.from_lon,
+                            req.to_lat, req.to_lon, routes)
+    scored = recommend(options, profile=req.profile,
+                       transit_delay_risk=_delay_risk())
+    return {
+        "modes": [
+            {
+                **asdict(s.option),
+                "score": s.score,
+                "badges": s.badges,
+                "why": s.why,
+            }
+            for s in scored
+        ],
+        "recommended": scored[0].option.mode if scored else None,
+        "delay_risk": round(_delay_risk(), 2),
+    }
+
+
+@app.post("/whatif")
+def whatif(req: WhatIfRequest):
+    """Scenario analysis."""
+    routes, depart_s = _run_transit_query(req)
+
+    if req.scenario == "weather":
+        w = get_weather(req.from_lat, req.from_lon)
+        result = weather_scenario(w, routes)
+
+    elif req.scenario == "missed_bus":
+        # Replan at the departure of the second-fastest option (i.e., the one
+        # after the one you'd miss), using routes already returned.
+        current_arrive = routes[0]["arrive"] if routes else None
+        later = routes[1:] if len(routes) > 1 else []
+        result = missed_bus_scenario(later, current_arrive or "")
+
+    elif req.scenario == "leave_later":
+        result = leave_later_curve(
+            router, rt_store if req.use_realtime else None,
+            req.from_lat, req.from_lon, req.to_lat, req.to_lon,
+            depart_s, req.max_walk_m,
         )
-        for o in options
-    ]
+
+    elif req.scenario == "monthly_pass":
+        from dataclasses import asdict as _ad
+        be = monthly_breakeven(req.trips_per_week)
+        result = type("R", (), {})()
+        result.scenario = "monthly_pass"
+        result.headline = ("Monthly pass saves you money"
+                           if be["pass_saves_money"]
+                           else "Pay-per-ride is cheaper at your frequency")
+        result.detail = (
+            f"{be['trips_per_month']} trips/month: pay-per-ride "
+            f"${be['pay_per_ride_cost']:.2f} vs pass ${be['monthly_pass_cost']:.2f}. "
+            f"Break-even at {be['breakeven_trips_per_week']} trips/week.")
+        result.timeline = []
+        result.alternatives = []
+        result.weather = None
+        result.breakeven = be
+
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(400, f"Unknown scenario: {req.scenario}")
+
+    return {
+        "scenario": result.scenario,
+        "headline": result.headline,
+        "detail": result.detail,
+        "timeline": result.timeline,
+        "alternatives": result.alternatives,
+        "weather": result.weather,
+        "breakeven": result.breakeven,
+    }
 
 
 @app.get("/vehicles")

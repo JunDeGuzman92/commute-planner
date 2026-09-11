@@ -6,6 +6,8 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import RouteForm from "../components/RouteForm";
 import { API_URL } from "../lib/config";
 import RouteCard from "../components/RouteCard";
+import ModeCompare from "../components/ModeCompare";
+import WhatIfPanel from "../components/WhatIfPanel";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
@@ -24,6 +26,9 @@ export default function HomePage() {
   const [stopMarkers, setStopMarkers] = useState([]);
   const [vehicleMarkers, setVehicleMarkers] = useState([]);
   const [showVehicles, setShowVehicles] = useState(false);
+  const [compareData, setCompareData] = useState(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [planParams, setPlanParams] = useState(null);
 
   useEffect(() => {
     // React 19 strict mode: effects run mount → cleanup → mount.
@@ -217,6 +222,7 @@ export default function HomePage() {
 
   const handlePlan = async (planData) => {
     setLoading(true);
+    setPlanParams(planData);
     try {
       const res = await fetch(`${API_URL}/plan`, {
         method: "POST",
@@ -234,6 +240,24 @@ export default function HomePage() {
       alert("Failed to plan route. Is the backend running on port 8101?");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCompare = async () => {
+    if (!planParams) return;
+    setCompareLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/compare`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(planParams),
+      });
+      const data = await res.json();
+      setCompareData(data);
+    } catch (e) {
+      console.error("Compare failed:", e);
+    } finally {
+      setCompareLoading(false);
     }
   };
 
@@ -346,9 +370,18 @@ export default function HomePage() {
 
           {routes.length > 0 && (
             <div className="mt-4">
-              <h2 className="font-semibold text-gray-900 mb-2">
-                {routes.length} Route Option{routes.length !== 1 ? "s" : ""}
-              </h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-semibold text-gray-900">
+                  {routes.length} Route Option{routes.length !== 1 ? "s" : ""}
+                </h2>
+                <button
+                  onClick={handleCompare}
+                  disabled={compareLoading}
+                  className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {compareLoading ? "..." : "Compare All Modes"}
+                </button>
+              </div>
               <div className="space-y-2">
                 {routes.map((route, idx) => (
                   <RouteCard
@@ -361,6 +394,26 @@ export default function HomePage() {
               </div>
             </div>
           )}
+
+          {compareData && (
+            <div className="mt-4">
+              <h2 className="font-semibold text-gray-900 mb-2">
+                All Modes Compared
+                {compareData.recommended && (
+                  <span className="ml-2 text-xs text-purple-600">
+                    Best: {compareData.recommended}
+                  </span>
+                )}
+              </h2>
+              <ModeCompare
+                modes={compareData.modes}
+                recommended={compareData.recommended}
+                delayRisk={compareData.delay_risk}
+              />
+            </div>
+          )}
+
+          {planParams && <WhatIfPanel planParams={planParams} />}
         </aside>
 
         <div className="flex-1 relative" style={{ minHeight: "400px" }}>
