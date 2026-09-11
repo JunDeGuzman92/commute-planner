@@ -35,14 +35,50 @@ from whatif import (get_weather, get_forecast, weather_scenario,
 
 rt_store = RealtimeStore()
 poller = RealtimePoller(rt_store)
-router = TransitRouter()
+
+# Router is created empty; static data + connections load in the background
+# during lifespan so the /health endpoint answers Railway's healthcheck
+# immediately instead of after a multi-minute data pipeline.
+router = TransitRouter.__new__(TransitRouter)
+router.db_path = None
+router.stops = {}
+router.stop_coords = {}
+router.connections = []
+router.trip_route = {}
+router.trip_headsign = {}
+router.trip_stop_sequence = {}
+router.trip_shape = {}
+router.shapes = {}
+router.route_names = {}
+router.transfer_edges = {}
+router_ready = False
+
+
+def _init_router():
+    """Heavy data load — runs in a thread so uvicorn can serve /health."""
+    global router, router_ready
+    import threading
+    from config import DB_PATH
+
+    def work():
+        global router, router_ready
+        if not DB_PATH.exists():
+            # Container cold start: download + build both feeds
+            import gtfs_loader, go_loader
+            gtfs_loader.main() if hasattr(gtfs_loader, "main") else None
+            go_loader.merge_go_gtfs()
+        fresh = TransitRouter()
+        fresh.load_service_day(date.today())
+        router = fresh
+        router_ready = True
+        poller.start()
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load today's connections and start the realtime poller.
-    router.load_service_day(date.today())
-    poller.start()
+    _init_router()
     yield
     poller.stop()
 
@@ -96,7 +132,8 @@ class RouteOut(BaseModel):
 @app.get("/health")
 def health():
     return {
-        "status": "ok",
+        "status": "ok" if router_ready else "starting",
+        "ready": router_ready,
         "connections_loaded": len(router.connections),
         "realtime": rt_store.status(),
     }
