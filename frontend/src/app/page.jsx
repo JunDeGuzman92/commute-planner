@@ -337,7 +337,7 @@ export default function HomePage() {
   const plannerContent = (
     <>
       {/* Tab bar */}
-      <div className="flex border-b bg-white text-[11px] md:text-xs font-medium sticky top-0 z-10 overflow-x-auto">
+      <div className="flex border-b bg-white text-[11px] md:text-xs font-medium sticky top-0 z-10">
         {[
           ["trip", "Trip"],
           ["insights", "Insights"],
@@ -347,7 +347,7 @@ export default function HomePage() {
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex-1 py-2.5 px-1 whitespace-nowrap ${
+            className={`flex-1 min-w-0 py-2.5 px-0.5 text-center ${
               activeTab === id
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-500 hover:text-gray-700"
@@ -439,13 +439,12 @@ export default function HomePage() {
       </div>
 
       {/* Attribution required by Metrolinx Access and Use Agreement */}
-      <div className="text-[9px] text-gray-400 px-3 py-2 border-t leading-tight">
-        Data used in this product or service is provided with the
-        permission of Metrolinx. Metrolinx makes no representations or
-        warranties of any kind, express or implied, with respect to the
-        Data and assumes no responsibility for the accuracy or currency
-        of the data used in this product or service. DRT data via the
-        Region of Durham open data portal.
+      <div className="text-[9px] text-gray-400 px-3 py-2 border-t leading-tight break-words">
+        Data used in this product or service is provided with the permission
+        of Metrolinx. Metrolinx makes no representations or warranties of any
+        kind, express or implied, and assumes no responsibility for the
+        accuracy or currency of the data. DRT data via the Region of Durham
+        open data portal.
       </div>
     </>
   );
