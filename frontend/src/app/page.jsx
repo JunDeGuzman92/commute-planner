@@ -14,6 +14,7 @@ import InsightsPanel from "../components/InsightsPanel";
 import ChatPanel from "../components/ChatPanel";
 import { DisruptionBanner, LeaveNowButton } from "../components/TripTools";
 import { useTripHistory } from "../lib/useTripHistory";
+import InstallPrompt from "../components/InstallPrompt";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
@@ -591,6 +592,8 @@ export default function HomePage() {
           {plannerContent}
         </div>
       </div>
+
+      <InstallPrompt />
     </main>
   );
 }
