@@ -1,7 +1,7 @@
 import json, urllib.request, sys
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-BASE = "http://localhost:8101"
+BASE = "https://commute-planner-production.up.railway.app"
 COMMON = {
     "from_lat": 43.8759, "from_lon": -78.9617,
     "to_lat": 43.8727, "to_lon": -78.8554,

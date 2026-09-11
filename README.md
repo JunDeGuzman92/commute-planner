@@ -2,6 +2,13 @@
 
 A multi-modal trip planning application for Durham Region Transit (DRT) with real-time updates, built with Python (FastAPI) and Next.js (Mapbox GL).
 
+![Durham Commute Planner](frontend/public/screenshot-home.png)
+
+## Live Demo
+
+- **App**: https://commute-planner-mu.vercel.app
+- **API**: https://commute-planner-production.up.railway.app
+
 ## Features
 
 - **Cross-agency routing**: DRT + GO Transit in one unified connection graph — real Lakeshore East train schedules, walk-transfer edges between bus stops and GO stations
@@ -23,11 +30,6 @@ A multi-modal trip planning application for Durham Region Transit (DRT) with rea
 - **Live disruption banner**: Watched routes flagged when trips run 5+ min late
 - **Real-time updates**: Live bus positions and delay predictions via GTFS-RT
 - **Interactive map**: Click to set origin/destination, view route geometry, see live bus locations
-
-## Live Demo
-
-- **App**: https://commute-planner-mu.vercel.app
-- **API**: https://commute-planner-production.up.railway.app
 
 ## Tech Stack
 
