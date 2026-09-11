@@ -8,6 +8,8 @@ import { API_URL } from "../lib/config";
 import RouteCard from "../components/RouteCard";
 import ModeCompare from "../components/ModeCompare";
 import WhatIfPanel from "../components/WhatIfPanel";
+import BudgetPanel from "../components/BudgetPanel";
+import IntercityModes from "../components/IntercityModes";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
@@ -413,6 +415,8 @@ export default function HomePage() {
             </div>
           )}
 
+          {planParams && <BudgetPanel planParams={planParams} />}
+          {planParams && <IntercityModes planParams={planParams} />}
           {planParams && <WhatIfPanel planParams={planParams} />}
         </aside>
 

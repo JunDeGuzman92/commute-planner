@@ -6,8 +6,11 @@ A multi-modal trip planning application for Durham Region Transit (DRT) with rea
 
 - **Multi-criteria routing**: Pareto-optimal route options (fastest, fewest transfers, least walking)
 - **Multimodal comparison**: DRT bus vs drive vs cycle vs walk vs Uber vs taxi — time, cost, CO2, calories
-- **Decision support**: Explainable recommendations with badges (Fastest, Cheapest, Lowest CO2, Most active)
+- **Long-distance options**: GO Train, VIA Rail, Megabus, FlixBus, Poparide carpool
+- **Budget engine**: Monthly transport budget tracking, per-mode cost projection, within/over budget flags
+- **AI surplus advisor**: Rule-based recommendations for leftover budget (food → emergency savings → PRESTO buffer → pass upgrade)
 - **What-if scenarios**: Missed bus recovery, leave-later curve, weather impact, monthly pass break-even
+- **Decision support**: Explainable recommendations with badges (Fastest, Cheapest, Lowest CO2, Most active)
 - **Real-time updates**: Live bus positions and delay predictions via GTFS-RT
 - **Interactive map**: Click to set origin/destination, view route geometry, see live bus locations
 - **Trip details**: Boarding/alighting stops, stop counts, headsigns, walking distances
@@ -69,8 +72,10 @@ Open http://localhost:3000
 | GET | `/health` | Service status + feed health |
 | GET | `/stops?q={query}` | Search stops by name |
 | POST | `/plan` | Plan routes between coordinates |
-| POST | `/compare` | All modes scored and compared |
+| POST | `/compare` | All local modes scored and compared |
 | POST | `/whatif` | Scenario analysis |
+| POST | `/intercity` | GO/VIA/Megabus/FlixBus/Poparide options |
+| POST | `/budget` | Budget analysis + AI surplus advisor |
 | GET | `/vehicles` | Live bus positions |
 | GET | `/alerts` | Active service alerts |
 

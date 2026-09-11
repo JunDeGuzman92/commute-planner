@@ -6,6 +6,8 @@ Endpoints:
   POST /plan         - Pareto-optimal routes between two coordinates
   POST /compare      - all modes (transit/drive/cycle/walk/uber/taxi) scored
   POST /whatif       - scenario analysis (missed bus, leave later, weather, pass)
+  POST /intercity    - GO/VIA/Megabus/FlixBus/Poparide options
+  POST /budget       - budget comparison + AI surplus advisor
   GET  /vehicles     - live bus positions (for map display)
   GET  /alerts       - active service alerts
 """
@@ -19,6 +21,8 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from budget import BudgetState, advise_surplus, compare_all_vs_budget
+from intercity import intercity_options
 from modes import compare_modes
 from recommend import recommend, monthly_breakeven
 from realtime import RealtimePoller, RealtimeStore
@@ -268,6 +272,74 @@ def whatif(req: WhatIfRequest):
         "alternatives": result.alternatives,
         "weather": result.weather,
         "breakeven": result.breakeven,
+    }
+
+
+class IntercityRequest(BaseModel):
+    from_lat: float = Field(..., ge=-90, le=90)
+    from_lon: float = Field(..., ge=-180, le=180)
+    to_lat: float = Field(..., ge=-90, le=90)
+    to_lon: float = Field(..., ge=-180, le=180)
+
+
+@app.post("/intercity")
+def intercity(req: IntercityRequest):
+    """GO Train, VIA Rail, Megabus, FlixBus, Poparide options."""
+    opts = intercity_options(req.from_lat, req.from_lon,
+                             req.to_lat, req.to_lon)
+    return {"options": [asdict(o) for o in opts]}
+
+
+class BudgetRequest(PlanRequest):
+    monthly_budget: float = Field(..., gt=0)
+    trips_per_week: int = Field(10, ge=1, le=60)
+    savings_balance: float = 0.0
+    food_insecure: bool = False
+    profile: str = "balanced"
+
+
+@app.post("/budget")
+def budget(req: BudgetRequest):
+    """Full budget analysis: every mode vs budget + AI surplus advice."""
+    routes, _ = _run_transit_query(req)
+    options = compare_modes(req.from_lat, req.from_lon,
+                            req.to_lat, req.to_lon, routes)
+    scored = recommend(options, profile=req.profile,
+                       transit_delay_risk=_delay_risk())
+
+    mode_dicts = [
+        {**asdict(s.option), "score": s.score, "badges": s.badges}
+        for s in scored
+    ]
+
+    # Default the "chosen" mode to the recommendation
+    chosen = scored[0].option if scored else None
+    state = BudgetState(
+        monthly_budget=req.monthly_budget,
+        trips_per_week=req.trips_per_week,
+        chosen_mode=chosen.mode if chosen else "transit",
+        cost_per_trip=chosen.cost if chosen else 0.0,
+    )
+
+    comparison = compare_all_vs_budget(state, mode_dicts)
+    advice = advise_surplus(state, savings_balance=req.savings_balance,
+                            food_insecure=req.food_insecure)
+
+    return {
+        "recommended_mode": chosen.mode if chosen else None,
+        "comparison": comparison,
+        "advisor": {
+            "headline": advice.headline,
+            "actions": advice.actions,
+            "reasoning": advice.reasoning,
+            "suggested_allocation": advice.suggested_allocation,
+        },
+        "budget_state": {
+            "monthly_budget": state.monthly_budget,
+            "monthly_spend": round(state.monthly_spend, 2),
+            "surplus": round(state.surplus, 2),
+            "trips_per_month": round(state.trips_per_month),
+        },
     }
 
 
