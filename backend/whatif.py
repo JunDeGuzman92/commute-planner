@@ -71,6 +71,45 @@ def get_weather(lat: float, lon: float) -> dict:
         return {"condition": "unknown"}
 
 
+def get_forecast(lat: float, lon: float, days: int = 7) -> list[dict]:
+    """Daily outlook for weekly planning. Fails soft (empty list)."""
+    try:
+        resp = requests.get(
+            OPEN_METEO_URL,
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
+                         "precipitation_probability_max",
+                "forecast_days": days,
+                "timezone": "America/Toronto",
+            },
+            timeout=6,
+        )
+        resp.raise_for_status()
+        daily = resp.json()["daily"]
+        out = []
+        for i, d in enumerate(daily["time"]):
+            code = daily["weather_code"][i]
+            condition = "clear"
+            if code in WMO_STORM:
+                condition = "storm"
+            elif code in WMO_SNOW:
+                condition = "snow"
+            elif code in WMO_RAIN:
+                condition = "rain"
+            out.append({
+                "date": d,
+                "condition": condition,
+                "temp_max_c": daily["temperature_2m_max"][i],
+                "temp_min_c": daily["temperature_2m_min"][i],
+                "precip_probability": daily["precipitation_probability_max"][i],
+            })
+        return out
+    except Exception:
+        return []
+
+
 def weather_scenario(weather: dict, modes: list) -> ScenarioResult:
     """Adjust mode advice for current weather."""
     cond = weather.get("condition", "unknown")

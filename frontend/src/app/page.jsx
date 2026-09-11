@@ -10,6 +10,8 @@ import ModeCompare from "../components/ModeCompare";
 import WhatIfPanel from "../components/WhatIfPanel";
 import BudgetPanel from "../components/BudgetPanel";
 import IntercityModes from "../components/IntercityModes";
+import InsightsPanel from "../components/InsightsPanel";
+import ChatPanel from "../components/ChatPanel";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
@@ -31,6 +33,7 @@ export default function HomePage() {
   const [compareData, setCompareData] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
   const [planParams, setPlanParams] = useState(null);
+  const [activeTab, setActiveTab] = useState("trip");
 
   useEffect(() => {
     // React 19 strict mode: effects run mount → cleanup → mount.
@@ -349,75 +352,120 @@ export default function HomePage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-96 bg-gray-50 border-r overflow-y-auto p-4 flex flex-col gap-4">
-          <RouteForm
-            origin={origin}
-            destination={destination}
-            onPlan={handlePlan}
-            loading={loading}
-            onOriginChange={setOrigin}
-            onDestinationChange={setDestination}
-          />
-
-          {origin && (
-            <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
-              <strong>Origin:</strong> {origin.lat.toFixed(5)}, {origin.lon.toFixed(5)}
-            </div>
-          )}
-          {destination && (
-            <div className="text-sm text-gray-600 bg-red-50 p-2 rounded">
-              <strong>Destination:</strong> {destination.lat.toFixed(5)}, {destination.lon.toFixed(5)}
-            </div>
-          )}
-
-          {routes.length > 0 && (
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-semibold text-gray-900">
-                  {routes.length} Route Option{routes.length !== 1 ? "s" : ""}
-                </h2>
-                <button
-                  onClick={handleCompare}
-                  disabled={compareLoading}
-                  className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded hover:bg-purple-700 disabled:opacity-50"
-                >
-                  {compareLoading ? "..." : "Compare All Modes"}
-                </button>
+        <aside className="w-96 bg-gray-50 border-r flex flex-col overflow-hidden">
+          {/* Trip form always visible at top */}
+          <div className="p-4 pb-2 border-b bg-white">
+            <RouteForm
+              origin={origin}
+              destination={destination}
+              onPlan={handlePlan}
+              loading={loading}
+              onOriginChange={setOrigin}
+              onDestinationChange={setDestination}
+            />
+            {origin && destination && (
+              <div className="text-[10px] text-gray-400 mt-1">
+                {origin.lat.toFixed(4)},{origin.lon.toFixed(4)} →{" "}
+                {destination.lat.toFixed(4)},{destination.lon.toFixed(4)}
               </div>
-              <div className="space-y-2">
-                {routes.map((route, idx) => (
-                  <RouteCard
-                    key={idx}
-                    option={route}
-                    selected={selectedRoute === idx}
-                    onClick={() => setSelectedRoute(idx)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {compareData && (
-            <div className="mt-4">
-              <h2 className="font-semibold text-gray-900 mb-2">
-                All Modes Compared
-                {compareData.recommended && (
-                  <span className="ml-2 text-xs text-purple-600">
-                    Best: {compareData.recommended}
-                  </span>
+          {/* Tab bar */}
+          <div className="flex border-b bg-white text-xs font-medium">
+            {[
+              ["trip", "Trip"],
+              ["insights", "Insights"],
+              ["budget", "Budget"],
+              ["ask", "Ask AI"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex-1 py-2 ${
+                  activeTab === id
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {activeTab === "trip" && (
+              <div className="space-y-4">
+                {routes.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="font-semibold text-gray-900 text-sm">
+                        {routes.length} Route Option{routes.length !== 1 ? "s" : ""}
+                      </h2>
+                      <button
+                        onClick={handleCompare}
+                        disabled={compareLoading}
+                        className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded hover:bg-purple-700 disabled:opacity-50"
+                      >
+                        {compareLoading ? "..." : "Compare Modes"}
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {routes.map((route, idx) => (
+                        <RouteCard
+                          key={idx}
+                          option={route}
+                          selected={selectedRoute === idx}
+                          onClick={() => setSelectedRoute(idx)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </h2>
-              <ModeCompare
-                modes={compareData.modes}
-                recommended={compareData.recommended}
-                delayRisk={compareData.delay_risk}
-              />
-            </div>
-          )}
 
-          {planParams && <BudgetPanel planParams={planParams} />}
-          {planParams && <IntercityModes planParams={planParams} />}
-          {planParams && <WhatIfPanel planParams={planParams} />}
+                {compareData && (
+                  <div>
+                    <h2 className="font-semibold text-gray-900 text-sm mb-2">
+                      All Modes
+                      {compareData.recommended && (
+                        <span className="ml-2 text-xs text-purple-600">
+                          Best: {compareData.recommended}
+                        </span>
+                      )}
+                    </h2>
+                    <ModeCompare
+                      modes={compareData.modes}
+                      recommended={compareData.recommended}
+                      delayRisk={compareData.delay_risk}
+                    />
+                  </div>
+                )}
+
+                {planParams && <IntercityModes planParams={planParams} />}
+                {planParams && <WhatIfPanel planParams={planParams} />}
+
+                {!planParams && (
+                  <div className="text-xs text-gray-500 text-center py-8">
+                    Set origin and destination on the map, then plan a trip to
+                    see options here.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "insights" && (
+              <InsightsPanel planParams={planParams} />
+            )}
+
+            {activeTab === "budget" && (
+              <BudgetPanel planParams={planParams} />
+            )}
+
+            {activeTab === "ask" && (
+              <ChatPanel planParams={planParams} />
+            )}
+          </div>
         </aside>
 
         <div className="flex-1 relative" style={{ minHeight: "400px" }}>

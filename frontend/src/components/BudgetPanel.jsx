@@ -37,7 +37,7 @@ export default function BudgetPanel({ planParams }) {
   };
 
   return (
-    <div className="border-t pt-3 mt-3">
+    <div className="">
       <h3 className="text-sm font-semibold text-gray-700 mb-2">
         💰 Transport Budget
       </h3>

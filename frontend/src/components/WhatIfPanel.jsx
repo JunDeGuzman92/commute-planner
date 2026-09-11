@@ -40,7 +40,7 @@ export default function WhatIfPanel({ planParams }) {
   };
 
   return (
-    <div className="border-t pt-3 mt-3">
+    <div className="">
       <h3 className="text-sm font-semibold text-gray-700 mb-2">What if...</h3>
       <div className="grid grid-cols-2 gap-1.5">
         {SCENARIOS.map((s) => (
