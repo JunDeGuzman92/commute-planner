@@ -26,7 +26,9 @@ export default function HomePage() {
   const [showVehicles, setShowVehicles] = useState(false);
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+    // React 19 strict mode: effects run mount → cleanup → mount.
+    // Only init when container exists and map not already created.
+    if (!mapContainer.current || map.current) return;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -43,6 +45,7 @@ export default function HomePage() {
       if (map.current) {
         map.current.remove();
         map.current = null;
+        setMapLoaded(false);
       }
     };
   }, []);
@@ -360,8 +363,8 @@ export default function HomePage() {
           )}
         </aside>
 
-        <div className="flex-1 relative">
-          <div ref={mapContainer} className="absolute inset-0" />
+        <div className="flex-1 relative" style={{ minHeight: "400px" }}>
+          <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
           {!mapLoaded && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
               <div className="text-gray-500">Loading map...</div>
