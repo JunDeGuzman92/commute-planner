@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import RouteForm from "../components/RouteForm";
+import { API_URL } from "../lib/config";
 import RouteCard from "../components/RouteCard";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
@@ -214,7 +215,7 @@ export default function HomePage() {
   const handlePlan = async (planData) => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8101/plan", {
+      const res = await fetch(`${API_URL}/plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(planData),
@@ -246,7 +247,7 @@ export default function HomePage() {
 
     const fetchVehicles = async () => {
       try {
-        const res = await fetch("http://localhost:8101/vehicles");
+        const res = await fetch(`${API_URL}/vehicles`);
         const data = await res.json();
 
         // Clear old vehicle markers
